@@ -5,27 +5,8 @@ struct Point {
     double x, y;
 };
 
-int firstMin(const vector<vector<int>>& adj, int i) {
-    int min = INT_MAX;
-    for (int k = 0; k < adj.size(); ++k)
-        if (adj[i][k] < min && i != k)
-            min = adj[i][k];
-    return min;
-}
-
-int secondMin(const vector<vector<int>>& adj, int i) {
-    int first = INT_MAX, second = INT_MAX;
-    for (int j = 0; j < adj.size(); ++j) {
-        if (i == j) continue;
-        if (adj[i][j] <= first) {
-            second = first;
-            first = adj[i][j];
-        } else if (adj[i][j] <= second && adj[i][j] != first) {
-            second = adj[i][j];
-        }
-    }
-    return second;
-}
+// Precomputed first and second minimum costs
+vector<int> firstMinVec, secondMinVec;
 
 void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
             int level, vector<int>& curr_path, vector<bool>& visited, int& final_res) {
@@ -40,28 +21,32 @@ void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
         return;
     }
 
+    // Reorder neighbors by ascending cost
+    vector<pair<int, int>> neighbors;
     for (int i = 0; i < N; ++i) {
-        if (adj[curr_path[level - 1]][i] != 0 && !visited[i]) {
-            int temp = curr_bound;
-            curr_weight += adj[curr_path[level - 1]][i];
+        if (!visited[i] && adj[curr_path[level - 1]][i] != 0)
+            neighbors.emplace_back(adj[curr_path[level - 1]][i], i);
+    }
+    sort(neighbors.begin(), neighbors.end());
 
-            if (level == 1)
-                curr_bound -= ((firstMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
-            else
-                curr_bound -= ((secondMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
+    for (auto& [cost, i] : neighbors) {
+        int temp_bound = curr_bound;
+        curr_weight += cost;
 
-            if (curr_bound + curr_weight < final_res) {
-                curr_path[level] = i;
-                visited[i] = true;
-                TSPRec(adj, curr_bound, curr_weight, level + 1, curr_path, visited, final_res);
-            }
+        if (level == 1)
+            curr_bound -= ((firstMinVec[curr_path[level - 1]] + firstMinVec[i]) / 2);
+        else
+            curr_bound -= ((secondMinVec[curr_path[level - 1]] + firstMinVec[i]) / 2);
 
-            curr_weight -= adj[curr_path[level - 1]][i];
-            curr_bound = temp;
-            fill(visited.begin(), visited.end(), false);
-            for (int j = 0; j <= level - 1; ++j)
-                visited[curr_path[j]] = true;
+        if (curr_bound + curr_weight < final_res) {
+            curr_path[level] = i;
+            visited[i] = true;
+            TSPRec(adj, curr_bound, curr_weight, level + 1, curr_path, visited, final_res);
+            visited[i] = false;  // Clean backtrack
         }
+
+        curr_weight -= cost;
+        curr_bound = temp_bound;
     }
 }
 
@@ -69,10 +54,25 @@ int solveTSP(const vector<vector<int>>& adj) {
     int N = adj.size();
     vector<int> curr_path(N + 1, -1);
     vector<bool> visited(N, false);
-    int curr_bound = 0;
+    firstMinVec.resize(N);
+    secondMinVec.resize(N);
 
-    for (int i = 0; i < N; ++i)
-        curr_bound += (firstMin(adj, i) + secondMin(adj, i));
+    int curr_bound = 0;
+    for (int i = 0; i < N; ++i) {
+        int first = INT_MAX, second = INT_MAX;
+        for (int j = 0; j < N; ++j) {
+            if (i == j) continue;
+            if (adj[i][j] <= first) {
+                second = first;
+                first = adj[i][j];
+            } else if (adj[i][j] < second) {
+                second = adj[i][j];
+            }
+        }
+        firstMinVec[i] = first;
+        secondMinVec[i] = second;
+        curr_bound += first + second;
+    }
 
     curr_bound = (curr_bound & 1) ? curr_bound / 2 + 1 : curr_bound / 2;
     visited[0] = true;
