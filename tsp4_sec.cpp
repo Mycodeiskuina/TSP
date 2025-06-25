@@ -1,13 +1,29 @@
+
 #include <bits/stdc++.h>
 using namespace std;
 
 const int INF = numeric_limits<int>::max();
 
-struct Point { int x, y; };
+
+
+struct Point {
+    int x, y;
+};
 
 int euclideanDistance(const Point &a, const Point &b) {
     return static_cast<int>(sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y)) + 0.5);
 }
+
+
+struct Node {
+    vector<vector<int>> reducedMatrix;
+    vector<pair<int, int>> path;
+    int lowerBound;    // Only lowerBound remains
+    int vertex;
+    int level;
+    set<pair<int, int>> excludedEdges;
+    bool operator>(const Node &other) const { return lowerBound > other.lowerBound; }
+};
 
 vector<vector<int>> loadTSPMatrix(const string &filename) {
     ifstream file(filename);
@@ -24,7 +40,8 @@ vector<vector<int>> loadTSPMatrix(const string &filename) {
             stringstream ss(line.substr(line.find(":") + 1));
             ss >> dimension;
         }
-        if (line.find("NODE_COORD_SECTION") != string::npos) break;
+        if (line.find("NODE_COORD_SECTION") != string::npos)
+            break;
     }
 
     vector<Point> points(dimension);
@@ -35,24 +52,17 @@ vector<vector<int>> loadTSPMatrix(const string &filename) {
     }
 
     vector<vector<int>> matrix(dimension, vector<int>(dimension));
-    for (int i = 0; i < dimension; ++i)
-        for (int j = 0; j < dimension; ++j)
+    for (int i = 0; i < dimension; ++i) {
+        for (int j = 0; j < dimension; ++j) {
             matrix[i][j] = (i == j ? INF : euclideanDistance(points[i], points[j]));
+        }
+    }
 
     return matrix;
 }
 
-struct Node {
-    vector<vector<int>> reducedMatrix;
-    vector<pair<int, int>> path;
-    int cost;
-    int vertex;
-    int level;
-    bool operator>(const Node &other) const { return cost > other.cost; }
-};
-
 int reduceMatrix(vector<vector<int>> &matrix) {
-    int reduction = 0, n = matrix.size();
+    int n = matrix.size(), reduction = 0;
     for (int i = 0; i < n; ++i) {
         int rowMin = *min_element(matrix[i].begin(), matrix[i].end());
         if (rowMin != INF && rowMin > 0) {
@@ -63,8 +73,7 @@ int reduceMatrix(vector<vector<int>> &matrix) {
     }
     for (int j = 0; j < n; ++j) {
         int colMin = INF;
-        for (int i = 0; i < n; ++i)
-            colMin = min(colMin, matrix[i][j]);
+        for (int i = 0; i < n; ++i) colMin = min(colMin, matrix[i][j]);
         if (colMin != INF && colMin > 0) {
             reduction += colMin;
             for (int i = 0; i < n; ++i)
@@ -77,7 +86,6 @@ int reduceMatrix(vector<vector<int>> &matrix) {
 pair<int, int> selectEdgeWithMaxPenalty(const vector<vector<int>> &matrix) {
     int n = matrix.size(), maxPenalty = -1;
     pair<int, int> bestEdge = {-1, -1};
-
     for (int i = 0; i < n; ++i)
         for (int j = 0; j < n; ++j)
             if (matrix[i][j] == 0) {
@@ -90,91 +98,155 @@ pair<int, int> selectEdgeWithMaxPenalty(const vector<vector<int>> &matrix) {
                     bestEdge = {i, j};
                 }
             }
-
     return bestEdge;
 }
 
-Node* createNode(vector<vector<int>> matrix, vector<pair<int, int>> path,
-                 int level, int i, int j, int n, int costSoFar) {
+void forbidReverseEdge(vector<vector<int>> &matrix, int from, int to) {
+    matrix[to][from] = INF;
+}
+
+Node* createInclusionNode(Node* parent, int i, int j) {
+    int n = parent->reducedMatrix.size();
+    vector<vector<int>> matrix = parent->reducedMatrix;
     for (int k = 0; k < n; ++k) {
         matrix[i][k] = INF;
         matrix[k][j] = INF;
     }
-    matrix[j][0] = INF;
 
-    int reductionCost = reduceMatrix(matrix);
-    path.push_back({i, j});
-    int totalCost = costSoFar + reductionCost;
+    unordered_map<int, int> forward, backward;
+    for (const auto& edge : parent->path) {
+        forward[edge.first] = edge.second;
+        backward[edge.second] = edge.first;
+    }
 
-    return new Node{matrix, path, totalCost, j, level};
+    int start = i;
+    while (backward.count(start)) start = backward[start];
+    int end = j;
+    while (forward.count(end)) end = forward[end];
+
+    if (start != end) matrix[end][start] = INF;
+
+    int reduction = reduceMatrix(matrix);
+    vector<pair<int, int>> newPath = parent->path;
+    newPath.push_back({i, j});
+    return new Node{matrix, newPath, parent->lowerBound + reduction, j, parent->level + 1};
 }
 
-// ✅ Versión corregida para reconstruir correctamente el tour
-void printPath(const vector<pair<int, int>> &path) {
-    if (path.empty()) return;
-    unordered_map<int, int> next;
-    for (const auto &[u, v] : path)
-        next[u] = v;
+Node* createExclusionNode(Node* parent, int i, int j) {
+    vector<vector<int>> matrix = parent->reducedMatrix;
+    matrix[i][j] = INF;
+    int reduction = reduceMatrix(matrix);
+    return new Node{matrix, parent->path, parent->lowerBound + reduction, parent->vertex, parent->level};
+}
 
-    int start = 0, curr = start;
-    cout << "Tour: ";
+vector<int> reconstructTour(const vector<pair<int, int>> &path) {
+    unordered_map<int, int> next;
+    for (auto [u, v] : path) next[u] = v;
+
+    vector<int> tour;
+    int curr = 0;
     do {
-        cout << curr << " -> ";
+        tour.push_back(curr);
         curr = next[curr];
-    } while (curr != start);
-    cout << start << endl;
+    } while (curr != 0 && tour.size() <= path.size());
+
+    tour.push_back(0);
+    return tour;
+}
+
+void printPriorityQueue(priority_queue<Node*, vector<Node*>, greater<Node*>> pq) {
+    cout << "Contenido de la priority_queue (nivel | lowerBound | path parcial):\n";
+    while (!pq.empty()) {
+        Node* node = pq.top(); pq.pop();
+        cout << "  Nivel: " << node->level << ", LB: " << node->lowerBound << ", Path: ";
+        for (auto [u, v] : node->path) {
+            cout << "(" << u << "->" << v << ") ";
+        }
+        cout << endl;
+    }
+    cout << "----------------------------------------\n";
 }
 
 int solveTSP(vector<vector<int>> costMatrix) {
     int n = costMatrix.size();
-    int initCost = reduceMatrix(costMatrix);
-    Node *root = new Node{costMatrix, {}, initCost, 0, 0};
-
+    int reduction = reduceMatrix(costMatrix);
+    Node* root = new Node{costMatrix, {}, reduction, 0, 0};
     priority_queue<Node*, vector<Node*>, greater<Node*>> pq;
     pq.push(root);
-
     int minCost = INF;
     vector<pair<int, int>> bestPath;
-
+    int x = 10;
     while (!pq.empty()) {
-        Node* minNode = pq.top(); pq.pop();
-        int i = minNode->vertex;
+         //printPriorityQueue(pq);
+        x--;
+        Node* node = pq.top(); pq.pop();
+        if (node->level == n - 1) {
 
-        if (minNode->level == n - 1) {
-            minNode->path.push_back({i, 0});
-            int totalCost = minNode->cost + costMatrix[i][0];
-            if (totalCost < minCost) {
-                minCost = totalCost;
-                bestPath = minNode->path;
+            
+            unordered_set<int> fromSet, toSet;
+            for (auto &[from, to] : node->path) {
+                fromSet.insert(from);
+                toSet.insert(to);
             }
-            delete minNode;
+
+            int missingFrom = -1, missingTo = -1;
+
+            for (int i = 0; i < n; ++i) {
+                if (!fromSet.count(i)) missingFrom = i; // nodo sin salida
+                if (!toSet.count(i)) missingTo = i;     // nodo sin entrada
+            }
+
+            if (missingFrom != -1 && missingTo != -1) {
+                node->path.push_back({missingFrom, missingTo});
+            }
+            int finalCost = node->lowerBound;
+
+            if (finalCost < minCost) {
+                minCost = finalCost;
+                bestPath = node->path;
+            }
+
+            if (finalCost <= pq.top()->lowerBound) {
+                //cout << "Solución óptima encontrada temprano.\n";
+                break;
+            }
+
+            delete node;
             continue;
         }
 
-        pair<int, int> bestEdge = selectEdgeWithMaxPenalty(minNode->reducedMatrix);
-        if (bestEdge.first != -1) {
-            int i = bestEdge.first, j = bestEdge.second;
-            int stepCost = costMatrix[i][j];
-            Node* child = createNode(minNode->reducedMatrix, minNode->path,
-                                     minNode->level + 1, i, j, n, minNode->cost + stepCost);
 
-            if (child->cost < minCost)
-                pq.push(child);
-            else
-                delete child;
-        }
+        pair<int, int> edge = selectEdgeWithMaxPenalty(node->reducedMatrix);
+        if (edge.first == -1) continue;
 
-        delete minNode;
+        pq.push(createInclusionNode(node, edge.first, edge.second));
+        pq.push(createExclusionNode(node, edge.first, edge.second));
+        delete node;
     }
 
-    printPath(bestPath);
+    // Reconstruct the best path
+    vector<int> tour = reconstructTour(bestPath);
+
+    cout << "Mejor recorrido: ";
+    for (int city : tour) {
+        cout << city << " ";
+    }
     return minCost;
 }
 
 int main() {
-    string filename = "rbu10.tsp"; // Asegúrate de que este archivo exista
-    auto costMatrix = loadTSPMatrix(filename);
-    cout << "Resolviendo TSP con Branch and Bound (penalización de ceros)...\n";
+    // vector<vector<int>> costMatrix = {
+    //     {INF, 27, 43, 16, 30, 26},
+    //     {7, INF, 16, 1, 30, 25},
+    //     {20, 13, INF, 35, 5, 0},
+    //     {21, 16, 25, INF, 18, 18},
+    //     {12, 46, 27, 48, INF, 5},
+    //     {23, 5, 5, 9, 5, INF}
+    // };
+    cout << "Resolviendo TSP con Branch and Bound...\n ";
+
+    string filename = "rbu10.tsp";
+    vector<vector<int>> costMatrix = loadTSPMatrix(filename);
     auto start = chrono::high_resolution_clock::now();
     int minCost = solveTSP(costMatrix);
     auto end = chrono::high_resolution_clock::now();
