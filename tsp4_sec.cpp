@@ -206,10 +206,9 @@ int solveTSP(vector<vector<int>> costMatrix) {
                 bestPath = node->path;
             }
 
-            if (finalCost <= pq.top()->lowerBound) {
-                //cout << "Solución óptima encontrada temprano.\n";
-                break;
-            }
+            // if (finalCost <= pq.top()->lowerBound) {
+            //     break;
+            // }
 
             delete node;
             continue;
@@ -219,9 +218,11 @@ int solveTSP(vector<vector<int>> costMatrix) {
         pair<int, int> edge = selectEdgeWithMaxPenalty(node->reducedMatrix);
         if (edge.first == -1) continue;
 
-        pq.push(createInclusionNode(node, edge.first, edge.second));
-        pq.push(createExclusionNode(node, edge.first, edge.second));
-        delete node;
+        Node* in = createInclusionNode(node, edge.first, edge.second);
+        if (in->lowerBound < minCost) pq.push(in); else delete in;
+
+        Node* ex = createExclusionNode(node, edge.first, edge.second);
+        if (ex->lowerBound < minCost) pq.push(ex); else delete ex;
     }
 
     // Reconstruct the best path
