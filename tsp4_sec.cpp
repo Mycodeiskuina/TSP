@@ -109,14 +109,15 @@ Node* createNode(vector<vector<int>> matrix, vector<pair<int, int>> path,
     return new Node{matrix, path, totalCost, j, level};
 }
 
+// ✅ Versión corregida para reconstruir correctamente el tour
 void printPath(const vector<pair<int, int>> &path) {
-    cout << "Tour: ";
     if (path.empty()) return;
     unordered_map<int, int> next;
-    for (auto &[u, v] : path) next[u] = v;
+    for (const auto &[u, v] : path)
+        next[u] = v;
 
-    int start = path.front().first;
-    int curr = start;
+    int start = 0, curr = start;
+    cout << "Tour: ";
     do {
         cout << curr << " -> ";
         curr = next[curr];
@@ -157,7 +158,6 @@ int solveTSP(vector<vector<int>> costMatrix) {
             Node* child = createNode(minNode->reducedMatrix, minNode->path,
                                      minNode->level + 1, i, j, n, minNode->cost + stepCost);
 
-            // ✅ Poda
             if (child->cost < minCost)
                 pq.push(child);
             else
@@ -172,7 +172,7 @@ int solveTSP(vector<vector<int>> costMatrix) {
 }
 
 int main() {
-    string filename = "rbu10.tsp"; // Asegúrate de que el archivo exista
+    string filename = "rbu10.tsp"; // Asegúrate de que este archivo exista
     auto costMatrix = loadTSPMatrix(filename);
     cout << "Resolviendo TSP con Branch and Bound (penalización de ceros)...\n";
     auto start = chrono::high_resolution_clock::now();
