@@ -1,11 +1,4 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <cmath>
-#include <sstream>
-#include <limits>
-#include <queue>
-#include <algorithm>
+#include <bits/stdc++.h>
 
 using namespace std;
 
@@ -187,8 +180,11 @@ int main() {
     vector<vector<int>> costMatrix = loadTSPMatrix(filename);
 
     cout << "Resolviendo TSP con 20 nodos usando Branch and Bound...\n";
+    auto start = chrono::high_resolution_clock::now();
     int minCost = solveTSP(costMatrix);
-    cout << "Costo mínimo: " << minCost << endl;
+    auto end = chrono::high_resolution_clock::now();
 
+    cout << "Costo mínimo: " << minCost << endl;
+    cout << "Tiempo de ejecución: " << chrono::duration<double>(end - start).count() << " segundos" << endl;
     return 0;
 }
