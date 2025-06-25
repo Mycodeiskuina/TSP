@@ -1,5 +1,4 @@
 #include <bits/stdc++.h>
-
 using namespace std;
 
 const int INF = numeric_limits<int>::max();
@@ -38,19 +37,16 @@ vector<vector<int>> loadTSPMatrix(const string &filename) {
         points[index - 1] = {x, y};
     }
 
-    // Crear matriz de adyacencia
     vector<vector<int>> matrix(dimension, vector<int>(dimension));
     for (int i = 0; i < dimension; ++i) {
         for (int j = 0; j < dimension; ++j) {
-            if (i == j) matrix[i][j] = INF;
-            else matrix[i][j] = euclideanDistance(points[i], points[j]);
+            matrix[i][j] = (i == j ? INF : euclideanDistance(points[i], points[j]));
         }
     }
 
     return matrix;
 }
 
-// Estructura de nodo para Branch and Bound
 struct Node {
     vector<vector<int>> reducedMatrix;
     vector<pair<int, int>> path;
@@ -70,8 +66,7 @@ int reduceMatrix(vector<vector<int>> &matrix) {
     for (int i = 0; i < n; ++i) {
         int rowMin = INF;
         for (int j = 0; j < n; ++j)
-            if (matrix[i][j] < rowMin)
-                rowMin = matrix[i][j];
+            rowMin = min(rowMin, matrix[i][j]);
         if (rowMin != INF && rowMin > 0) {
             reduction += rowMin;
             for (int j = 0; j < n; ++j)
@@ -83,8 +78,7 @@ int reduceMatrix(vector<vector<int>> &matrix) {
     for (int j = 0; j < n; ++j) {
         int colMin = INF;
         for (int i = 0; i < n; ++i)
-            if (matrix[i][j] < colMin)
-                colMin = matrix[i][j];
+            colMin = min(colMin, matrix[i][j]);
         if (colMin != INF && colMin > 0) {
             reduction += colMin;
             for (int i = 0; i < n; ++i)
@@ -96,34 +90,35 @@ int reduceMatrix(vector<vector<int>> &matrix) {
     return reduction;
 }
 
-Node* createNode(vector<vector<int>> parentMatrix, vector<pair<int,int>> path,
-                 int level, int i, int j, int n) {
+Node* createNode(const vector<vector<int>> &parentMatrix, const vector<pair<int,int>> &path,
+                 int level, int i, int j, int n, bool include) {
     Node* node = new Node;
     node->reducedMatrix = parentMatrix;
     node->path = path;
+    node->level = level;
+    node->vertex = include ? j : i;  // next node if included, same if excluded
 
-    if (level != 0)
+    if (include) {
         node->path.push_back({i, j});
-
-    for (int k = 0; k < n; ++k) {
-        node->reducedMatrix[i][k] = INF;
-        node->reducedMatrix[k][j] = INF;
+        for (int k = 0; k < n; ++k) {
+            node->reducedMatrix[i][k] = INF;
+            node->reducedMatrix[k][j] = INF;
+        }
+        node->reducedMatrix[j][0] = INF;
+    } else {
+        node->reducedMatrix[i][j] = INF;
     }
 
-    node->reducedMatrix[j][0] = INF;
-    node->cost = 0;
-    node->level = level;
-    node->vertex = j;
-
-    node->cost += reduceMatrix(node->reducedMatrix);
+    node->cost = reduceMatrix(node->reducedMatrix);
     return node;
 }
 
 void printPath(const vector<pair<int,int>> &path) {
-    cout << "Tour: ";
+    if (path.empty()) return;
+    cout << "Tour: " << path[0].first;
     for (auto &p : path)
-        cout << p.first << " -> ";
-    cout << path.front().first << endl;
+        cout << " -> " << p.second;
+    cout << " -> " << path[0].first << endl;
 }
 
 int solveTSP(const vector<vector<int>> &costMatrix) {
@@ -143,9 +138,7 @@ int solveTSP(const vector<vector<int>> &costMatrix) {
     vector<pair<int,int>> bestPath;
 
     while (!pq.empty()) {
-        Node* minNode = pq.top();
-        pq.pop();
-
+        Node* minNode = pq.top(); pq.pop();
         int i = minNode->vertex;
 
         if (minNode->level == n - 1) {
@@ -161,10 +154,17 @@ int solveTSP(const vector<vector<int>> &costMatrix) {
 
         for (int j = 0; j < n; ++j) {
             if (minNode->reducedMatrix[i][j] != INF) {
-                Node* child = createNode(minNode->reducedMatrix, minNode->path,
-                                         minNode->level + 1, i, j, n);
-                child->cost += minNode->cost + costMatrix[i][j];
-                pq.push(child);
+                // incluir (i,j)
+                Node* includeNode = createNode(minNode->reducedMatrix, minNode->path, minNode->level + 1, i, j, n, true);
+                includeNode->cost += minNode->cost + costMatrix[i][j];
+                if (includeNode->cost < minCost) pq.push(includeNode);
+                else delete includeNode;
+
+                // excluir (i,j)
+                Node* excludeNode = createNode(minNode->reducedMatrix, minNode->path, minNode->level, i, j, n, false);
+                excludeNode->cost += minNode->cost;
+                if (excludeNode->cost < minCost) pq.push(excludeNode);
+                else delete excludeNode;
             }
         }
 
@@ -179,7 +179,7 @@ int main() {
     string filename = "rbu10.tsp";
     vector<vector<int>> costMatrix = loadTSPMatrix(filename);
 
-    cout << "Resolviendo TSP con 20 nodos usando Branch and Bound...\n";
+    cout << "Resolviendo TSP con Branch and Bound...\n";
     auto start = chrono::high_resolution_clock::now();
     int minCost = solveTSP(costMatrix);
     auto end = chrono::high_resolution_clock::now();
