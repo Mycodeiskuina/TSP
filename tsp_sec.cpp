@@ -159,6 +159,13 @@ int main(int argc, char* argv[]) {
     cout << "Distancia mínima del TSP: " << min_cost << endl;
     cout << "Tiempo de ejecución: " << chrono::duration<double>(end - start).count() << " segundos" << endl;
 
+    // to save time
+    ofstream times_out("tiempos_sec.txt", std::ios::app);
+
+    // sec times
+    times_out << dimension << " " << chrono::duration<double>(end-start).count()<< " " <<  1 <<"\n"; 
+    times_out.close();
+
     ofstream out("ruta_"+to_string(dimension)+".txt");
     final_path.resize(points.size());
 
