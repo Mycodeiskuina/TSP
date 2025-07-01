@@ -16,10 +16,11 @@ def generar_tsp(nombre_archivo, cantidad_puntos, rango=50):
 # Ejemplo de uso
 if __name__ == "__main__":
 
-    for i in range (1, 6):
+    for i in range (2, 26):
+       generar_tsp(f"data_{i}.tsp", cantidad_puntos=i, rango=1000)
+
+    for i in range (5, 7):
        generar_tsp(f"data_{2**i}.tsp", cantidad_puntos=2**i, rango=1000)
     
-    for i in range (10,51, 10):
+    for i in range (30,51, 5):
         generar_tsp(f"data_{i}.tsp", cantidad_puntos=i, rango=1000)
-    
-    generar_tsp(f"data_{12}.tsp", cantidad_puntos=12, rango=1000)
