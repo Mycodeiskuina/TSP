@@ -61,7 +61,7 @@ void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
             if (level == 1)
                 curr_bound -= ((firstMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
             else
-                curr_bound -= ((secondMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
+                curr_bound -= ((secondMin(adj, curr_path[level - 1]) + secondMin(adj, i)) / 2);
 
             if (curr_bound + curr_weight < final_res) {
                 curr_path[level] = i;
