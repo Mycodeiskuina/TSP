@@ -7,6 +7,7 @@ struct Point {
 
 int dimension = 0;
 
+// Lectura del archivo TSPLIB y parseo de coordenadas
 vector<Point> parseTSPLIB(const string& filename) {
     ifstream infile(filename);
     string line;
@@ -37,12 +38,14 @@ vector<Point> parseTSPLIB(const string& filename) {
     return coords;
 }
 
+//matriz simétrica de distancias (distancia de i a j es igual a la de j a i)
 vector<vector<int>> computeDistanceMatrix(const vector<Point>& points) {
     int n = points.size();
     vector<vector<int>> adj(n, vector<int>(n, 0));
     for (int i = 0; i < n; ++i)
         for (int j = 0; j < n; ++j)
             if (i != j) {
+                // Calcular la distancia euclidiana y redondear al entero más cercano
                 double dx = points[i].x - points[j].x;
                 double dy = points[i].y - points[j].y;
                 adj[i][j] = round(sqrt(dx * dx + dy * dy));

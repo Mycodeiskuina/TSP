@@ -1,95 +1,106 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+int dimension = 0;
+
+void copyToFinal(const vector<int>& curr_path, vector<int>& final_path) {
+    int N = curr_path.size();
+    final_path.resize(N + 1);
+    for (int i = 0; i < N; i++)
+        final_path[i] = curr_path[i];
+    final_path[N] = curr_path[0]; // Closing the loop
+}
+
 struct Point {
     double x, y;
 };
 
-// Precomputed first and second minimum costs
-vector<int> firstMinVec, secondMinVec;
-int dimension = 0;
+int firstMin(const vector<vector<int>>& adj, int i) {
+    int min = INT_MAX;
+    for (int k = 0; k < adj.size(); ++k)
+        if (adj[i][k] < min && i != k)
+            min = adj[i][k];
+    return min;
+}
+
+int secondMin(const vector<vector<int>>& adj, int i) {
+    int first = INT_MAX, second = INT_MAX;
+    for (int j = 0; j < adj.size(); ++j) {
+        if (i == j) continue;
+        if (adj[i][j] <= first) {
+            second = first;
+            first = adj[i][j];
+        } else if (adj[i][j] <= second && adj[i][j] != first) {
+            second = adj[i][j];
+        }
+    }
+    return second;
+}
 
 void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
-            int level, vector<int>& curr_path, vector<bool>& visited, int& final_res, vector<int>& best_path) {//) {
+            int level, vector<int>& curr_path, vector<bool>& visited, int& final_res, vector<int>& final_path) {
 
     int N = adj.size();
     if (level == N) {
         if (adj[curr_path[level - 1]][curr_path[0]] != 0) {
             int curr_res = curr_weight + adj[curr_path[level - 1]][curr_path[0]];
             if (curr_res < final_res){
+                // copyToFinal(curr_path, final_path);
                 final_res = curr_res;
-                best_path = curr_path; // save the best path
+                final_path = curr_path; // save the best path
             }
         }
         return;
     }
 
-    // Reorder neighbors by ascending cost
-    vector<pair<int, int>> neighbors;
     for (int i = 0; i < N; ++i) {
-        if (!visited[i] && adj[curr_path[level - 1]][i] != 0)
-            neighbors.emplace_back(adj[curr_path[level - 1]][i], i);
-    }
-    sort(neighbors.begin(), neighbors.end());
+        if (adj[curr_path[level - 1]][i] != 0 && !visited[i]) {
+            int temp = curr_bound;
+            curr_weight += adj[curr_path[level - 1]][i];
 
-    for (auto& [cost, i] : neighbors) {
-        int temp_bound = curr_bound;
-        curr_weight += cost;
+            if (level == 1)
+                curr_bound -= ((firstMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
+            else
+                curr_bound -= ((secondMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
 
-        if (level == 1)
-            curr_bound -= ((firstMinVec[curr_path[level - 1]] + firstMinVec[i]) / 2);
-        else
-            curr_bound -= ((secondMinVec[curr_path[level - 1]] + firstMinVec[i]) / 2);
+            if (curr_bound + curr_weight < final_res) {
+                curr_path[level] = i;
+                visited[i] = true;
+                TSPRec(adj, curr_bound, curr_weight, level + 1, curr_path, visited, final_res, final_path);
+            }
 
-        if (curr_bound + curr_weight < final_res) {
-            curr_path[level] = i;
-            visited[i] = true;
-            TSPRec(adj, curr_bound, curr_weight, level + 1, curr_path, visited, final_res, best_path);
-            visited[i] = false;  // Clean backtrack
+            curr_weight -= adj[curr_path[level - 1]][i];
+            curr_bound = temp;
+            fill(visited.begin(), visited.end(), false);
+            for (int j = 0; j <= level - 1; ++j)
+                visited[curr_path[j]] = true;
         }
-
-        curr_weight -= cost;
-        curr_bound = temp_bound;
     }
 }
 
-int solveTSP(const vector<vector<int>>& adj, vector<int>& best_path){ //) {
+int solveTSP(const vector<vector<int>>& adj,  vector<int>& final_path) {
     int N = adj.size();
     vector<int> curr_path(N + 1, -1);
-    vector<bool> visited(N, false);
-    firstMinVec.resize(N);
-    secondMinVec.resize(N);
 
+    vector<bool> visited(N, false);
     int curr_bound = 0;
-    for (int i = 0; i < N; ++i) {
-        int first = INT_MAX, second = INT_MAX;
-        for (int j = 0; j < N; ++j) {
-            if (i == j) continue;
-            if (adj[i][j] <= first) {
-                second = first;
-                first = adj[i][j];
-            } else if (adj[i][j] < second) {
-                second = adj[i][j];
-            }
-        }
-        firstMinVec[i] = first;
-        secondMinVec[i] = second;
-        curr_bound += first + second;
-    }
+
+    for (int i = 0; i < N; ++i)
+        curr_bound += (firstMin(adj, i) + secondMin(adj, i));
 
     curr_bound = (curr_bound & 1) ? curr_bound / 2 + 1 : curr_bound / 2;
     visited[0] = true;
     curr_path[0] = 0;
 
     int final_res = INT_MAX;
-    TSPRec(adj, curr_bound, 0, 1, curr_path, visited, final_res, best_path);
+    TSPRec(adj, curr_bound, 0, 1, curr_path, visited, final_res, final_path);
     return final_res;
 }
 
 vector<Point> parseTSPLIB(const string& filename) {
     ifstream infile(filename);
     string line;
-    //int dimension = 0;
+    // int dimension = 0;
     while (getline(infile, line)) {
         if (line.find("NODE_COORD_SECTION") != string::npos)
             break;
@@ -105,11 +116,10 @@ vector<Point> parseTSPLIB(const string& filename) {
         }
     }
 
-    int index;
-    double x, y;
     vector<Point> coords(dimension);
-    
     for (int i = 0; i < dimension; ++i) {
+        int index;
+        double x, y;
         infile >> index >> x >> y;
         coords[i] = {x, y};
     }
@@ -136,36 +146,27 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    vector<int> best_path; // to save the optimal route
+    vector<int> final_path; // to save the optimal route
     string filename = argv[1];
     vector<Point> points = parseTSPLIB(filename);
     vector<vector<int>> adj = computeDistanceMatrix(points);
 
     auto start = chrono::high_resolution_clock::now();
-    int min_cost = solveTSP(adj, best_path);
+    int min_cost = solveTSP(adj, final_path);
     auto end = chrono::high_resolution_clock::now();
 
     cout << "Archivo: " << filename << endl;
     cout << "Distancia mínima del TSP: " << min_cost << endl;
     cout << "Tiempo de ejecución: " << chrono::duration<double>(end - start).count() << " segundos" << endl;
 
-    // to save time
-    ofstream times_out("tiempos.txt", std::ios::app);
-
-    // sec times
-    times_out << dimension << " " << chrono::duration<double>(end-start).count()<< " " <<  1 <<"\n"; 
-    times_out.close();
-
-    // to save results:
     ofstream out("ruta_"+to_string(dimension)+".txt");
-    best_path.resize(points.size());
+    final_path.resize(points.size());
 
-    for (int i : best_path)
+    for (int i : final_path)
         out << points[i].x << " " << points[i].y << "\n";    
-    out << points[best_path[0]].x << " " << points[best_path[0]].y << "\n";
+    out << points[final_path[0]].x << " " << points[final_path[0]].y << "\n";
     out << "Distancia: "<<min_cost<<endl;
     out.close();
-    
 
     return 0;
 }
