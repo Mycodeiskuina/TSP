@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # ======= CONFIGURACIÓN ==========
-archivo_tiempos = "tiempos.txt"  # nombre del archivo con los datos
+archivo_tiempos = "tiempos_sec.txt"  # nombre del archivo con los datos
 nombre_salida_png = "grafica_tiempos_secuencial.png"  # nombre del archivo de salida
 titulo = "Tiempos Promedios por Tamaño N"
 etiqueta_x = "Tamaño del problema (N)"

@@ -40,12 +40,14 @@ int secondMin(const vector<vector<int>>& adj, int i) {
 void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
             int level, vector<int>& curr_path, vector<bool>& visited, int& final_res, vector<int>& final_path) {
 
+    //input: matriz simetrica de distancias entre puntos, cota actual, peso actual, nivel actual, camino actual, vector de visitados
+    // output: camino final y resultado final(distancia minima)
+
     int N = adj.size();
     if (level == N) {
         if (adj[curr_path[level - 1]][curr_path[0]] != 0) {
             int curr_res = curr_weight + adj[curr_path[level - 1]][curr_path[0]];
             if (curr_res < final_res){
-                // copyToFinal(curr_path, final_path);
                 final_res = curr_res;
                 final_path = curr_path; // save the best path
             }
@@ -61,7 +63,7 @@ void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
             if (level == 1)
                 curr_bound -= ((firstMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
             else
-                curr_bound -= ((secondMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
+                curr_bound -= ((secondMin(adj, curr_path[level - 1]) + secondMin(adj, i)) / 2);
 
             if (curr_bound + curr_weight < final_res) {
                 curr_path[level] = i;

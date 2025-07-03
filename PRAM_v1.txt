@@ -1,0 +1,62 @@
+Entrada:
+    adj[N][N]           // Matriz simétrica de costos entre ciudades
+
+Salida:
+    final_res           // Menor distancia total encontrada
+    final_path[N]       // Camino óptimo correspondiente
+
+Variables compartidas:
+    final_res := ∞
+    final_path := [-1, -1, ..., -1] de tamaño N
+
+// Paso 1: inicialización secuencial (procesador P0)
+P0:
+    curr_bound := 0
+    para i en 0..N-1:
+        curr_bound += firstMin(adj, i) + secondMin(adj, i)
+    curr_bound := (curr_bound % 2 == 1) ? curr_bound / 2 + 1 : curr_bound / 2
+
+// Paso 2: paralelización a nivel 1 — N−1 procesadores trabajan en paralelo
+pardo para i en 1..N-1:        // cada P_{i-1} maneja ciudad i
+    si adj[0][i] ≠ 0 entonces:
+        curr_path := vector de tamaño N, curr_path[0] = 0, curr_path[1] = i
+        visited := [false]*N
+        visited[0] := true
+        visited[i] := true
+
+        curr_weight := adj[0][i]
+        local_bound := curr_bound - ((firstMin(adj, 0) + firstMin(adj, i)) / 2)
+
+        // Comienza la búsqueda recursiva desde nivel 2
+        TSPRecParalelo(adj, local_bound, curr_weight, 2, curr_path, visited, final_res, final_path)
+
+// Subrutina paralela local de cada procesador (igual a tu TSPRec)
+TSPRecParalelo(adj, curr_bound, curr_weight, level, curr_path, visited, final_res, final_path):
+    N := tamaño de adj
+
+    si level == N entonces
+        si adj[curr_path[N-1]][0] ≠ 0 entonces
+            curr_res := curr_weight + adj[curr_path[N-1]][0]
+            si curr_res < final_res entonces
+                bloquear:
+                    si curr_res < final_res:           // doble verificación dentro del lock
+                        final_res := curr_res
+                        final_path := curr_path
+                desbloquear
+        retornar
+
+    para j en 0..N-1:
+        si !visited[j] y adj[curr_path[level−1]][j] ≠ 0 entonces
+            temp_weight := curr_weight + adj[curr_path[level−1]][j]
+            temp_bound := curr_bound
+
+            si level == 2 entonces
+                temp_bound -= (secondMin(adj, curr_path[level−1]) + firstMin(adj, j)) / 2
+            sino
+                temp_bound -= (secondMin(adj, curr_path[level−1]) + secondMin(adj, j)) / 2
+
+            si temp_bound + temp_weight < final_res entonces
+                curr_path[level] := j
+                visited[j] := true
+                TSPRecParalelo(adj, temp_bound, temp_weight, level+1, curr_path, visited, final_res, final_path)
+                visited[j] := false
