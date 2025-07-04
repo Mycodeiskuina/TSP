@@ -25,8 +25,7 @@ for line in lines:
 
 
 # Generar archivos con los primeros i puntos (i = 2 hasta 64)
-for it in range(1, 8):
-    i = 2**it
+for i in range(12, 31):
     filename = f"data_{i}.tsp"
     with open(filename, "w") as f:
         # Escribir encabezado modificado
