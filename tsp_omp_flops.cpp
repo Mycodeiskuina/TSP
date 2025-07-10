@@ -47,7 +47,7 @@ void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
     if (level == N) {
         if (adj[curr_path[level - 1]][curr_path[0]] != 0) {
             int curr_res = curr_weight + adj[curr_path[level - 1]][curr_path[0]];
-            #pragma omp atomic
+            #pragma omp critical
             flop_counter++; // suma final
             if (curr_res < final_res) {
                 final_res = curr_res;
@@ -61,21 +61,21 @@ void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
         if (adj[curr_path[level - 1]][i] != 0 && !visited[i]) {
             int temp = curr_bound;
             curr_weight += adj[curr_path[level - 1]][i];
-            #pragma omp atomic
+            #pragma omp critical
             flop_counter++; // suma de peso
 
             if (level == 1) {
                 curr_bound -= ((firstMin(adj, curr_path[level - 1]) + firstMin(adj, i)) / 2);
-                #pragma omp atomic
+                #pragma omp critical
                 flop_counter += 3; // 2 mins + 1 suma + 1 división
             } else {
                 curr_bound -= ((secondMin(adj, curr_path[level - 1]) + secondMin(adj, i)) / 2);
-                #pragma omp atomic
+                #pragma omp critical
                 flop_counter += 3;
             }
 
             if (curr_bound + curr_weight < final_res) {
-                #pragma omp atomic
+                #pragma omp critical
                 flop_counter++; // suma para comparar
                 curr_path[level] = i;
                 visited[i] = true;
@@ -83,7 +83,7 @@ void TSPRec(const vector<vector<int>>& adj, int curr_bound, int curr_weight,
             }
 
             curr_weight -= adj[curr_path[level - 1]][i];
-            #pragma omp atomic
+            #pragma omp critical
             flop_counter++; // resta
             curr_bound = temp;
 
@@ -122,7 +122,7 @@ int solveTSP(const vector<vector<int>>& adj, vector<int>& final_path) {
 
         int curr_weight = adj[0][i];
         int bound = curr_bound - ((firstMin(adj, 0) + firstMin(adj, i)) / 2);
-        #pragma omp atomic
+        #pragma omp critical
         flop_counter += 3;
 
         TSPRec(adj, bound, curr_weight, 2, curr_path, visited, local_res, local_path);
@@ -178,10 +178,10 @@ vector<vector<int>> computeDistanceMatrix(const vector<Point>& points) {
             if (i != j) {
                 double dx = points[i].x - points[j].x;
                 double dy = points[i].y - points[j].y;
-                #pragma omp atomic
+                #pragma omp critical
                 flop_counter += 2; // restas
                 adj[i][j] = round(sqrt(dx * dx + dy * dy));
-                #pragma omp atomic
+                #pragma omp critical
                 flop_counter += 3; // mults + suma + raíz
             }
     return adj;
